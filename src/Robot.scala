@@ -1,4 +1,4 @@
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object Directions extends Enumeration {
   val North, East, South, West = Value
@@ -9,11 +9,7 @@ object Directions extends Enumeration {
 }
 
 object Board {
-  def maxX = 5
-  def maxY = 5
-  def onBoard(x: Int, y: Int): Boolean = {
-    x < maxX && x >= 0 && y < maxY && y >= 0
-  }
+  def onBoard(x: Int, y: Int): Boolean = x < 5 && x >= 0 && y < 5 && y >= 0
 }
 
 case class Robot(direction: Directions.Value, x: Int, y: Int) {
@@ -32,25 +28,16 @@ case class Robot(direction: Directions.Value, x: Int, y: Int) {
 object ToyRobot extends App {
   def tokenize(line: String): Array[String] = line.toLowerCase.split("( |,)+")
 
-  def exec(tokens: Array[String], robot: Option[Robot]): Option[Robot] = (tokens, robot) match {
-    case (Array("place", direction: String, x: String, y: String), _) => Try(Robot(Directions.withName(direction.capitalize), x.toInt, y.toInt)).toOption
-    case (Array("move"), Some(robot)) => Some(robot.move)
-    case (Array("left"), Some(robot)) => Some(robot.left)
-    case (Array("right"), Some(robot)) => Some(robot.right)
-    case _ =>  robot
+  def exec(tokens: Array[String], robot: Option[Robot]): Try[Robot] = (tokens, robot) match {
+    case (Array("place", direction: String, x: String, y: String), _) => Try(Robot(Directions.withName(direction.capitalize), x.toInt, y.toInt))
+    case (Array("move"), Some(robot)) => Success(robot.move)
+    case (Array("left"), Some(robot)) => Success(robot.left)
+    case (Array("right"), Some(robot)) => Success(robot.right)
+    case _ =>  Failure(new Exception("Command Failed"))
   }
 
-  def validate(robot: Option[Robot]): Option[Robot] = robot match {
-    case Some(robot) => {
-      if(Board.onBoard(robot.x, robot.y)) {
-        Some(robot)
-      } else {
-        None
-      }
-
-    }
-    case _ => None
-  }
+  def validate(robot: Robot): Try[Robot] = if(Board.onBoard(robot.x, robot.y)) Success(robot)
+  else Failure(new Exception("Invalid Robot"))
 
   override def main(args:Array[String] ): Unit = {
     var robot: Option[Robot] = None
@@ -58,9 +45,9 @@ object ToyRobot extends App {
     for (line <- args) {
       val tokens = tokenize(line)
 
-      robot = validate(exec(tokens, robot)) match {
-        case Some(newRobot) => Some(newRobot)
-        case None => robot
+      robot = exec(tokens, robot).map(validate(_)) match {
+        case Success(newRobot) => newRobot.toOption
+        case Failure(e) => robot
       }
 
       println(robot)
