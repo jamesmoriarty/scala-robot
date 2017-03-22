@@ -1,5 +1,19 @@
+import scala.util.Try
+
 object Directions extends Enumeration {
   val North, East, South, West = Value
+
+  def rotate(direction: Directions.Value, n: Int): Directions.Value = {
+    Directions.apply((direction.id + n + Directions.maxId) % Directions.maxId)
+  }
+}
+
+object Board {
+  def maxX = 5
+  def maxY = 5
+  def onBoard(x: Int, y: Int): Boolean = {
+    x < maxX && x >= 0 && y < maxY && y >= 0
+  }
 }
 
 case class Robot(direction: Directions.Value, x: Int, y: Int) {
@@ -9,30 +23,33 @@ case class Robot(direction: Directions.Value, x: Int, y: Int) {
     case Directions.South => copy(this.direction, this.x, this.y - 1)
     case Directions.West => copy(this.direction, this.x - 1, this.y)
   }
+
+  def left: Robot = copy(Directions.rotate(this.direction, 1), this.x, this.y)
+
+  def right: Robot = copy(Directions.rotate(this.direction, -1), this.x, this.y)
 }
 
 object ToyRobot extends App {
   def tokenize(line: String): Array[String] = line.toLowerCase.split("( |,)+")
 
-  def place(direction: String, x: String, y: String): Option[Robot] = {
-    try {
-      Some(Robot(Directions.withName(direction.capitalize), x.toInt, y.toInt))
-  } catch {
-    case e: Exception => None
-  }
-}
-
   def exec(tokens: Array[String], robot: Option[Robot]): Option[Robot] = (tokens, robot) match {
-    case (Array("place", direction: String, x: String, y: String), _) => place(direction, x, y)
+    case (Array("place", direction: String, x: String, y: String), _) => Try(Robot(Directions.withName(direction.capitalize), x.toInt, y.toInt)).toOption
     case (Array("move"), Some(robot)) => Some(robot.move)
-    case (_, Some(robot)) => {
-      println("unknown command")
-      Some(robot)
+    case (Array("left"), Some(robot)) => Some(robot.left)
+    case (Array("right"), Some(robot)) => Some(robot.right)
+    case _ =>  robot
+  }
+
+  def validate(robot: Option[Robot]): Option[Robot] = robot match {
+    case Some(robot) => {
+      if(Board.onBoard(robot.x, robot.y)) {
+        Some(robot)
+      } else {
+        None
+      }
+
     }
-    case _ => {
-      println("must place robot")
-      None
-    }
+    case _ => None
   }
 
   override def main(args:Array[String] ): Unit = {
@@ -40,7 +57,12 @@ object ToyRobot extends App {
 
     for (line <- args) {
       val tokens = tokenize(line)
-      robot = exec(tokens, robot)
+
+      robot = validate(exec(tokens, robot)) match {
+        case Some(newRobot) => Some(newRobot)
+        case None => robot
+      }
+
       println(robot)
     }
   }
