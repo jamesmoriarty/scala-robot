@@ -4,53 +4,55 @@ object Directions extends Enumeration {
   val North, East, South, West = Value
 
   def rotate(direction: Directions.Value, n: Int): Directions.Value = {
-    Directions.apply((direction.id + n + Directions.maxId) % Directions.maxId)
+    Directions((direction.id + n + Directions.maxId) % Directions.maxId)
   }
-}
 
-object Board {
-  def onBoard(x: Int, y: Int): Boolean = x < 5 && x >= 0 && y < 5 && y >= 0
+  def apply(string: String): Directions.Value = {
+    Directions.withName(string.capitalize)
+  }
 }
 
 case class Robot(direction: Directions.Value, x: Int, y: Int) {
   def move: Robot = direction match {
-    case Directions.North => copy(this.direction, this.x, this.y + 1)
-    case Directions.East => copy(this.direction, this.x + 1, this.y)
-    case Directions.South => copy(this.direction, this.x, this.y - 1)
-    case Directions.West => copy(this.direction, this.x - 1, this.y)
+    case Directions.North => copy(y=this.y + 1)
+    case Directions.East => copy(x=this.x + 1)
+    case Directions.South => copy(y=this.y - 1)
+    case Directions.West => copy(x=this.x - 1)
   }
 
-  def left: Robot = copy(Directions.rotate(this.direction, 1), this.x, this.y)
+  def left: Robot = copy(direction=Directions.rotate(this.direction, -1))
 
-  def right: Robot = copy(Directions.rotate(this.direction, -1), this.x, this.y)
+  def right: Robot = copy(direction=Directions.rotate(this.direction, 1))
 }
 
 object ToyRobot extends App {
-  def tokenize(line: String): Array[String] = line.toLowerCase.split("( |,)+")
-
-  def exec(tokens: Array[String], robot: Option[Robot]): Try[Robot] = (tokens, robot) match {
-    case (Array("place", direction: String, x: String, y: String), _) => Try(Robot(Directions.withName(direction.capitalize), x.toInt, y.toInt))
-    case (Array("move"), Some(robot)) => Success(robot.move)
-    case (Array("left"), Some(robot)) => Success(robot.left)
-    case (Array("right"), Some(robot)) => Success(robot.right)
-    case _ =>  Failure(new Exception("Command Failed"))
+  def exec(line: String, robot: Option[Robot]): Try[Robot] = (tokenize(line), robot) match {
+    case ("place" :: direction :: x :: y :: Nil, _) => Try(Robot(Directions(direction), x.toInt, y.toInt))
+    case ("move" :: Nil, Some(robot)) => Success(robot.move)
+    case ("left" :: Nil, Some(robot)) => Success(robot.left)
+    case ("right" :: Nil, Some(robot)) => Success(robot.right)
+    case ("report" :: Nil, Some(robot)) => {
+      println(robot)
+      Success(robot)
+    }
+    case _ => Failure(new Exception("Command Failed"))
   }
 
-  def validate(robot: Robot): Try[Robot] = if(Board.onBoard(robot.x, robot.y)) Success(robot)
-  else Failure(new Exception("Invalid Robot"))
+  def onBoard(robot: Robot): Try[Robot] =
+    if (robot.x < 5 && robot.x >= 0 && robot.y < 5 && robot.y >= 0)
+      Success(robot)
+    else
+      Failure(new Exception("Invalid Robot"))
 
-  override def main(args:Array[String] ): Unit = {
-    var robot: Option[Robot] = None
+  def tokenize(line: String): List[String] = line.toLowerCase.split("( |,)+").toList
 
-    for (line <- args) {
-      val tokens = tokenize(line)
-
-      robot = exec(tokens, robot).map(validate(_)) match {
+  override def main(args: Array[String]): Unit = {
+    val robot: Option[Robot] = None
+    args.foldLeft(robot) { (robot: Option[Robot], line: String) =>
+      exec(line, robot).map(onBoard(_)) match {
         case Success(newRobot) => newRobot.toOption
         case Failure(e) => robot
       }
-
-      println(robot)
     }
   }
 }
