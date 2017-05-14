@@ -1,33 +1,43 @@
 import scala.util.{Failure, Success, Try}
 
-object Directions extends Enumeration {
-  val North, East, South, West = Value
-
-  def rotate(direction: Directions.Value, n: Int): Directions.Value = {
-    Directions((direction.id + n + Directions.maxId) % Directions.maxId)
-  }
-
-  def apply(string: String): Directions.Value = {
-    Directions.withName(string.capitalize)
-  }
+sealed trait Direction {
+  def left: Direction
+  def right: Direction
+  def fromString(name: String) = Map("north" -> NORTH, "east" -> EAST, "west" -> WEST, "south" -> SOUTH)(name)
+}
+case object NORTH extends Direction {
+  def left: Direction = WEST
+  def right: Direction = EAST
+}
+case object EAST extends Direction {
+  def left: Direction = NORTH
+  def right: Direction = SOUTH
+}
+case object WEST extends Direction {
+  def left: Direction = SOUTH
+  def right: Direction = NORTH
+}
+case object SOUTH extends Direction {
+  def left: Direction = EAST
+  def right: Direction = WEST
 }
 
-case class Robot(direction: Directions.Value, x: Int, y: Int) {
+case class Robot(direction: Direction, x: Int, y: Int) {
   def move: Robot = direction match {
-    case Directions.North => copy(y=this.y + 1)
-    case Directions.East => copy(x=this.x + 1)
-    case Directions.South => copy(y=this.y - 1)
-    case Directions.West => copy(x=this.x - 1)
+    case NORTH => copy(y=this.y + 1)
+    case EAST => copy(x=this.x + 1)
+    case SOUTH => copy(y=this.y - 1)
+    case WEST => copy(x=this.x - 1)
   }
 
-  def left: Robot = copy(direction=Directions.rotate(this.direction, -1))
+  def left: Robot = copy(direction=direction.left)
 
-  def right: Robot = copy(direction=Directions.rotate(this.direction, 1))
+  def right: Robot = copy(direction=direction.right)
 }
 
 object ToyRobot extends App {
   def exec(line: String, robot: Option[Robot]): Try[Robot] = (tokenize(line), robot) match {
-    case ("place" :: direction :: x :: y :: Nil, _) => Try(Robot(Directions(direction), x.toInt, y.toInt))
+    case ("place" :: direction :: x :: y :: Nil, _) => Try(Robot(NORTH.fromString(direction), x.toInt, y.toInt))
     case ("move" :: Nil, Some(robot)) => Success(robot.move)
     case ("left" :: Nil, Some(robot)) => Success(robot.left)
     case ("right" :: Nil, Some(robot)) => Success(robot.right)
