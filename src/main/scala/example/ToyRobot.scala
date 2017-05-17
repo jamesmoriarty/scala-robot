@@ -12,20 +12,16 @@ object ToyRobot extends App {
     case _ => Failure(new Exception("Command Failed"))
   }
 
-  def onBoard(robot: Robot): Try[Robot] =
-    if (robot.x < 5 && robot.x >= 0 && robot.y < 5 && robot.y >= 0)
-      Success(robot)
-    else
-      Failure(new Exception("Invalid Robot"))
-
   def tokenize(line: String): List[String] = line.toLowerCase.split("( |,)+").toList
 
   override def main(args: Array[String]): Unit = {
+    val board: Board = new Board(5, 5)
     val robot: Option[Robot] = None
+
     args.foldLeft(robot) { (robot: Option[Robot], line: String) =>
-      exec(line, robot).map(onBoard(_)) match {
-        case Success(newRobot) => newRobot.toOption
-        case Failure(e) => robot
+      exec(line, robot).filter((newRobot) => board.within(newRobot.x, newRobot.y)) match {
+        case Success(newRobot) => Some(newRobot)
+        case _ => robot
       }
     }
   }
