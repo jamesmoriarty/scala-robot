@@ -16,9 +16,8 @@ object ToyRobot extends App {
 
   override def main(args: Array[String]): Unit = {
     val board: Board = new Board(5, 5)
-    val robot: Option[Robot] = None
 
-    args.foldLeft(robot) { (robot: Option[Robot], line: String) =>
+    args.foldLeft(None: Option[Robot]) { (robot, line) =>
       exec(line, robot).filter((newRobot) => board.within(newRobot.x, newRobot.y)) match {
         case Success(newRobot) => Some(newRobot)
         case _ => robot
